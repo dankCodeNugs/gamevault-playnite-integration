@@ -25,21 +25,21 @@ namespace GameVaultLibrary
 
             this.ViewModel = viewModel;
 
-            pwd.Password = viewModel.Settings.Password;
+            //pwd.Password = viewModel.Settings.Password;
 
-            pwd.PasswordChanged += PWD_PasswordChanged;
-            viewModel.PropertyChanged += ViewModel_PropertyChanged;
+            //pwd.PasswordChanged += PWD_PasswordChanged;
+            //viewModel.PropertyChanged += ViewModel_PropertyChanged;
         }
 
-        private void ViewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(GameVaultLibrarySettingsViewModel.Settings))
-                pwd.Password = ViewModel.Settings.Password;
-        }
+        //private void ViewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        //{
+        //    if (e.PropertyName == nameof(GameVaultLibrarySettingsViewModel.Settings))
+        //        pwd.Password = ViewModel.Settings.Password;
+        //}
 
-        private void PWD_PasswordChanged(object sender, RoutedEventArgs e)
-        {
-            ViewModel.Settings.Password = pwd.Password;
-        }
+        //private void PWD_PasswordChanged(object sender, RoutedEventArgs e)
+        //{
+        //    ViewModel.Settings.Password = pwd.Password;
+        //}
     }
 }

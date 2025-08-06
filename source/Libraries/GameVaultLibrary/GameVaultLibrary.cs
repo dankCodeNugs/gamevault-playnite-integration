@@ -1,4 +1,5 @@
 ﻿using GameVaultLibrary.Contollers;
+using GameVaultLibrary.Helper;
 using GameVaultLibrary.Models;
 using Playnite.SDK;
 using Playnite.SDK.Events;
@@ -12,6 +13,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Controls;
+using static GameVaultLibrary.GameVaultLibraryClient;
 
 namespace GameVaultLibrary
 {
@@ -86,65 +88,21 @@ namespace GameVaultLibrary
         {
             List<GameMetadata> gameMetadatas = new List<GameMetadata>();
 
-            if (string.IsNullOrWhiteSpace(settings.Settings.ServerUrl))
+            bool isRunning = await GameVaultClient.EnsureRunning(TimeSpan.FromSeconds(10), args.CancelToken);
+            try
             {
-                API.Instance.Dialogs.ShowMessage("GameVault Server URL is not set in the settings", "GameVault Import Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-                return null;
-            }
-            else if (string.IsNullOrWhiteSpace(settings.Settings.Username) || string.IsNullOrWhiteSpace(settings.Settings.Password))
-            {
-                API.Instance.Dialogs.ShowMessage("GameVault Username or Password is not set in the settings", "GameVault Import Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-                return null;
-            }
+                CancellationTokenSource cancelToken = new CancellationTokenSource();
+                var result = await PipelineHelper.SendPipeMessage($"gamevault://query?query=getallgames", cancelToken.Token, expectsResult: true);
 
-            // Get all the games from the server
-            using (HttpClient client = new HttpClient() { MaxResponseContentBufferSize = int.MaxValue - 1, Timeout = TimeSpan.FromSeconds(60) })
-            {
-                client.DefaultRequestHeaders.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("Playnite", API.Instance.ApplicationInfo.ApplicationVersion.ToString()));
-                client.DefaultRequestHeaders.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("GameVaultLibraryExtension", settings.Settings.Version));
 
-                client.DefaultRequestHeaders.Add("X-Playnite-PluginId", Id.ToString());
-                client.DefaultRequestHeaders.Add("X-Playnite-PluginVersion", settings.Settings.Version);
 
-                var authenticationString = $"{settings.Settings.Username}:{settings.Settings.Password}";
-                var base64EncodedAuthenticationString = Convert.ToBase64String(Encoding.UTF8.GetBytes(authenticationString));
-                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", base64EncodedAuthenticationString);
-
-                HttpResponseMessage response;
-
-                try
+                if (string.IsNullOrEmpty(result))
                 {
-                    response = await client.GetAsync($"{settings.Settings.ServerUrl}/api/games?limit=-1", args.CancelToken);
-                }
-                catch (Exception ex)
-                {
-                    API.Instance.Dialogs.ShowMessage($"Error: {ex}", "GameVault Import Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                    API.Instance.Dialogs.ShowMessage("No games found. Check the GameVault Client", "GameVault Import Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
                     return null;
                 }
-
-                string content = "Unknown Error";
-
-                try
-                {
-                    content = await response.Content?.ReadAsStringAsync();
-                }
-                catch (Exception) { }
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                    {
-                        API.Instance.Dialogs.ShowMessage("Your username or password is incorrect", "GameVault Import Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-                    }
-                    else
-                    {
-                        API.Instance.Dialogs.ShowMessage($"Server error ({response.StatusCode}, {response.ReasonPhrase}): {content}", "GameVault Import Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-                    }
-
-                    return null;
-                }
-
-                var serverGames = Playnite.SDK.Data.Serialization.FromJson<Paginated<GameVaultServerGame>>(content);
+                string decodedGames = Encoding.UTF8.GetString(Convert.FromBase64String(result));
+                var serverGames = Playnite.SDK.Data.Serialization.FromJson<Paginated<GameVaultServerGame>>(decodedGames);
 
                 if (serverGames?.data?.Any() != true)
                 {
@@ -166,9 +124,14 @@ namespace GameVaultLibrary
 
                     gameMetadatas.Add(gameMetadata);
                 }
+                //}
+            }
+            catch (Exception ex)
+            {
+                API.Instance.Dialogs.ShowMessage($"Failed to import games with error:\n{ex.Message}", "GameVault Import Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                return null;
             }
 
-            bool isRunning = await GameVaultClient.EnsureRunning(TimeSpan.FromSeconds(10), args.CancelToken);
 
             // If the client is not running, we can't get the installed status of games
             if (isRunning)

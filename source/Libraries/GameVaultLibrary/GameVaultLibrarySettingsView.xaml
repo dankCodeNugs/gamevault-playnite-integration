@@ -6,13 +6,14 @@
              mc:Ignorable="d"
              d:DesignHeight="400" d:DesignWidth="600">
     <StackPanel Margin="10">
-        <TextBlock Text="Server URL:"/>
+        <!--<TextBlock Text="Server URL:"/>
         <TextBox Text="{Binding Settings.ServerUrl}"/>
         
         <TextBlock Text="Username:" Margin="0,10,0,0"/>
         <TextBox Text="{Binding Settings.Username}"/>
         
         <TextBlock Text="Password:" Margin="0,10,0,0"/>
-        <PasswordBox x:Name="pwd" />
+        <PasswordBox x:Name="pwd" />-->
+        <TextBlock Text="No further configuration necessary. Log in to the GameVault client and you're ready to go."/>
     </StackPanel>
 </UserControl>

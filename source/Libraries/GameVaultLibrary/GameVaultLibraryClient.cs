@@ -1,4 +1,5 @@
-﻿using Microsoft.Win32;
+﻿using GameVaultLibrary.Helper;
+using Microsoft.Win32;
 using Playnite.SDK;
 using System;
 using System.Collections.Generic;
@@ -18,7 +19,7 @@ namespace GameVaultLibrary
 {
     public class GameVaultLibraryClient : LibraryClient
     {
-        private const string GAMEVAULT_PIPE_NAME = "GameVault";
+        
         private const string GAMEVAULT_PROCESS_NAME = "gamevault";
 
         public static readonly string IconPath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "icon.png");
@@ -119,7 +120,7 @@ namespace GameVaultLibrary
 
                     try
                     {
-                        AppVersion = await SendPipeMessage("gamevault://query?query=getappversion", cancellationToken, expectsResult: true).ConfigureAwait(false);
+                        AppVersion = await PipelineHelper.SendPipeMessage("gamevault://query?query=getappversion", cancellationToken, expectsResult: true).ConfigureAwait(false);
                     }
                     catch (Exception) { }
 
@@ -136,57 +137,7 @@ namespace GameVaultLibrary
             }
         }
 
-        /// <summary>
-        /// Sends a single message to the main running instance
-        /// </summary>
-        /// <param name="message">The message to send (which should be an uri form)</param>
-        /// <param name="expectsResult">True if we expect a response (such as from a Query)</param>
-        /// <returns></returns>
-        public async Task<string> SendPipeMessage(string message, CancellationToken cancellationToken, bool expectsResult = false, int timeout = 500)
-        {
-            string result = null;
-            var client = new NamedPipeClientStream(GAMEVAULT_PIPE_NAME);
-            StreamWriter writer = null;
-            StreamReader reader = null;
-
-            try
-            {
-                await client.ConnectAsync(timeout, cancellationToken);
-
-                writer = new StreamWriter(client, Encoding.UTF8, 1024, leaveOpen: true) { AutoFlush = true };
-                await writer.WriteLineAsync(message);
-
-                if (expectsResult)
-                {
-                    reader = new StreamReader(client, Encoding.UTF8, false, 1024, leaveOpen: true);
-                    result = await reader.ReadLineAsync();
-                }
-            }
-            finally
-            {
-                SafeDispose(writer);
-                SafeDispose(reader);
-                SafeDispose(client);
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Safely dispose anything without throwing an error if it's already disposed or closed or whatever
-        /// </summary>
-        /// <param name="disposable">The object to dispose</param>
-        private static void SafeDispose(IDisposable disposable)
-        {
-            if (disposable == null)
-                return;
-
-            try
-            {
-                disposable.Dispose();
-            }
-            catch (Exception) { }
-        }
+       
 
         public static string GetExecutablePath() => GetExecutablePathFromUriSchemaCommand();
 
@@ -246,7 +197,7 @@ namespace GameVaultLibrary
             {
                 if (!ensureRunning || !await EnsureRunning(TimeSpan.FromSeconds(10), cancellationToken))
                 {
-                    var result = await SendPipeMessage($"gamevault://query?query=getinstalldirectory&gameid={gameId}", cancellationToken, expectsResult: true);
+                    var result = await PipelineHelper.SendPipeMessage($"gamevault://query?query=getinstalldirectory&gameid={gameId}", cancellationToken, expectsResult: true);
 
                     if (!string.IsNullOrEmpty(result))
                         return new QueryResult<string>(true, result);
@@ -263,7 +214,7 @@ namespace GameVaultLibrary
             {
                 if (!ensureRunning || !await EnsureRunning(TimeSpan.FromSeconds(10), cancellationToken))
                 {
-                    var result = await SendPipeMessage($"gamevault://query?query=installed&gameid={gameId}", cancellationToken, expectsResult: true);
+                    var result = await PipelineHelper.SendPipeMessage($"gamevault://query?query=installed&gameid={gameId}", cancellationToken, expectsResult: true);
 
                     if (bool.TryParse(result, out var resultBool))
                         return new QueryResult<bool>(true, resultBool);
